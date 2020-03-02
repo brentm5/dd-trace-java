@@ -1,10 +1,26 @@
-package datadog.trace.agent.tooling.bytebuddy;
+package datadog.trace.agent.tooling.bytebuddy.matcher;
 
 import java.util.regex.Pattern;
 import net.bytebuddy.build.HashCodeAndEqualsPlugin;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 
+/**
+ * Global ignores matcher used by the agent.
+ *
+ * <p>This matcher services two main purposes:
+ * <li>
+ *
+ *     <ul>
+ *       Ignore classes that are unsafe or pointless to transform. 'System' level classes like jvm
+ *       classes or groovy classes, other tracers, debuggers, etc.
+ * </ul>
+ *
+ * <ul>
+ *   Uses {@link AdditionalLibraryIgnoresMatcher} to also ignore additional classes to minimize
+ *   number of classes we apply expensive matchers to.
+ * </ul>
+ */
 @HashCodeAndEqualsPlugin.Enhance
 public class GlobalIgnoresMatcher<T extends TypeDescription>
     extends ElementMatcher.Junction.AbstractBase<T> {
@@ -15,6 +31,9 @@ public class GlobalIgnoresMatcher<T extends TypeDescription>
   public static <T extends TypeDescription> ElementMatcher.Junction<T> globalIgnoresMatcher() {
     return new GlobalIgnoresMatcher<>();
   }
+
+  private final ElementMatcher<T> additionalLibraryIgnoreMatcher =
+      AdditionalLibraryIgnoresMatcher.additionalLibraryIgnoresMatcher();
 
   /**
    * Be very careful about the types of matchers used in this section as they are called on every
@@ -40,43 +59,7 @@ public class GlobalIgnoresMatcher<T extends TypeDescription>
         || name.startsWith("com.appdynamics.")
         || name.startsWith("com.singularity.")
         || name.startsWith("com.jinspired.")
-        || name.startsWith("org.jinspired.")
-        || name.startsWith("org.springframework.cglib.")
-        || name.startsWith("org.springframework.aop.")
-        || name.startsWith("org.springframework.beans.factory.annotation.")
-        || name.startsWith("org.springframework.beans.factory.config.")
-        || name.startsWith("org.springframework.beans.factory.parsing.")
-        || name.startsWith("org.springframework.beans.factory.xml.")
-        || name.startsWith("org.springframework.beans.propertyeditors.")
-        || name.startsWith("org.springframework.boot.autoconfigure.cache.")
-        || name.startsWith("org.springframework.boot.autoconfigure.condition.")
-        || name.startsWith("org.springframework.boot.autoconfigure.http.")
-        || name.startsWith("org.springframework.boot.autoconfigure.jackson.")
-        || name.startsWith("org.springframework.boot.autoconfigure.web.")
-        || name.startsWith("org.springframework.boot.context.")
-        || name.startsWith("org.springframework.boot.convert.")
-        || name.startsWith("org.springframework.boot.diagnostics.")
-        || name.startsWith("org.springframework.boot.web.server.")
-        || name.startsWith("org.springframework.boot.web.servlet.")
-        || name.startsWith("org.springframework.context.annotation.")
-        || name.startsWith("org.springframework.context.event.")
-        || name.startsWith("org.springframework.context.expression.")
-        || name.startsWith("org.springframework.core.annotation.")
-        || name.startsWith("org.springframework.core.convert.")
-        || name.startsWith("org.springframework.core.env.")
-        || name.startsWith("org.springframework.core.io.")
-        || name.startsWith("org.springframework.core.type.")
-        || name.startsWith("org.springframework.expression.")
-        || name.startsWith("org.springframework.format.")
-        || name.startsWith("org.springframework.http.")
-        || name.startsWith("org.springframework.ui.")
-        || name.startsWith("org.springframework.validation.")
-        || name.startsWith("org.springframework.web.context.")
-        || name.startsWith("org.springframework.web.filter.")
-        || name.startsWith("org.springframework.web.method.")
-        || name.startsWith("org.springframework.web.multipart.")
-        || name.startsWith("org.springframework.web.util.")) {
-
+        || name.startsWith("org.jinspired.")) {
       return true;
     }
 
@@ -154,6 +137,10 @@ public class GlobalIgnoresMatcher<T extends TypeDescription>
     }
 
     if (COM_MCHANGE_PROXY.matcher(name).matches()) {
+      return true;
+    }
+
+    if (additionalLibraryIgnoreMatcher.matches(target)) {
       return true;
     }
 
